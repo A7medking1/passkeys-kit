@@ -1,0 +1,23 @@
+name: passkeys_kit
+description: >-
+  Passkey sign-in for Flutter apps on iOS and Android, with Face ID or a
+  fingerprint. Talks to the passkeys-kit server (Express and MongoDB).
+version: 0.1.0
+repository: https://github.com/A7medking1/passkeys-kit
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  device_info_plus: ^13.3.0
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+  passkeys: ^2.24.2
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

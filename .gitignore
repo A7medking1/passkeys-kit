@@ -1,0 +1,18 @@
+# Server
+server/node_modules/
+server/dist/
+server/.env
+server/*.log
+
+# Flutter
+.dart_tool/
+build/
+*.iml
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec_overrides.yaml
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/

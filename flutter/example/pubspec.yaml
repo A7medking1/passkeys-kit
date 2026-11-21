@@ -1,0 +1,24 @@
+name: passkeys_kit_example
+description: "The passkeys_kit example app: sign up, add a passkey, and sign in with it."
+publish_to: none
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+  passkeys_kit:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

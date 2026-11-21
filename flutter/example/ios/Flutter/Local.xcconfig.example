@@ -1,0 +1,8 @@
+// Copy this file to Local.xcconfig (git-ignored) and set your own values.
+//
+// The bundle id and the team id must match an entry of `webcredentials.apps`
+// in https://<PASSKEYS_RP_ID>/.well-known/apple-app-site-association,
+// written as TEAMID.bundle.id.
+PASSKEYS_BUNDLE_ID = com.yourcompany.yourapp
+PASSKEYS_TEAM_ID = ABCDE12345
+PASSKEYS_RP_ID = yourdomain.com

@@ -1,0 +1,7 @@
+// Who the app is, and the domain its passkeys belong to (the RP ID).
+//
+// Don't put your own values here. Copy Local.xcconfig.example to
+// Local.xcconfig (git-ignored) and set them there: it's read after this file.
+PASSKEYS_BUNDLE_ID = com.example.passkeysKitExample
+PASSKEYS_TEAM_ID =
+PASSKEYS_RP_ID = example.com
