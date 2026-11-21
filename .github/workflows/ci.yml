@@ -55,9 +55,13 @@ jobs:
       - name: Check formatting
         working-directory: flutter
         run: dart format --output=none --set-exit-if-changed lib test example/lib example/test
+      # Infos don't fail the build: newer Flutter releases deprecate APIs the
+      # kit still supports on older ones (3.50 deprecates
+      # package:flutter/material.dart). They still show in the log, and
+      # warnings and errors still fail it.
       - name: Analyze
         working-directory: flutter
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Test the package
         working-directory: flutter
         run: flutter test
