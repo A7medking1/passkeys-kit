@@ -26,7 +26,7 @@ It needs Flutter 3.41 or newer. Passkeys work on iOS 16+ and on Android 9+ with 
 import 'package:passkeys_kit/passkeys_kit.dart';
 
 final passkeys = PasskeyClient(
-  server: HttpPasskeyServerApi(
+  server: DioPasskeyServerApi(
     baseUrl: Uri.parse('https://api.example.com/auth/passkeys'),
     headers: () async => {'Authorization': 'Bearer ${await tokens.read()}'},
   ),
@@ -66,6 +66,6 @@ The app must be tied to your RP ID's domain:
 
 ## More
 
-- [Flutter guide](../docs/flutter.md): errors, your own HTTP client (Dio), tests with fakes, and UX tips
+- [Flutter guide](../docs/flutter.md): errors, using your app's Dio, tests with fakes, and UX tips
 - [Example app](example): the app in the README's screenshots
 - [Troubleshooting](../docs/troubleshooting.md)

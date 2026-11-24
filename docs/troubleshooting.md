@@ -83,7 +83,7 @@ The user already has `maxPasskeysPerUser` passkeys, 10 by default. They can dele
 
 ### The register routes or the list answer 401
 
-Your `authenticate` middleware didn't find a signed-in user. In Flutter, check that `HttpPasskeyServerApi`'s `headers` returns the token.
+Your `authenticate` middleware didn't find a signed-in user. In Flutter, check that the token is sent: by `DioPasskeyServerApi`'s `headers`, or by your Dio's interceptor.
 
 ### "User ids must be 64 bytes at most"
 

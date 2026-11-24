@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:passkeys_kit/passkeys_kit.dart';
 
 import 'account_api.dart';
+import 'dio_client.dart';
 
 /// The signed-in account.
 class Account {
@@ -25,20 +26,22 @@ class AppState extends ChangeNotifier {
     required Uri serverUrl,
     AccountApi? accounts,
     PasskeyClient? passkeys,
-  }) : accounts = accounts ?? AccountApi(serverUrl) {
+  }) {
+    // One Dio for every call. Its interceptor sends the token once signed in.
+    final dio = createDio(serverUrl, token: () => _token);
+    this.accounts = accounts ?? AccountApi(dio);
     this.passkeys =
         passkeys ??
         PasskeyClient(
-          server: HttpPasskeyServerApi(
-            baseUrl: serverUrl.resolve('auth/passkeys'),
-            headers: () => {
-              if (_token != null) 'Authorization': 'Bearer $_token',
-            },
+          // Where the router is mounted, under the Dio's baseUrl.
+          server: DioPasskeyServerApi(
+            baseUrl: Uri.parse('auth/passkeys'),
+            dio: dio,
           ),
         );
   }
 
-  final AccountApi accounts;
+  late final AccountApi accounts;
   late final PasskeyClient passkeys;
 
   String? _token;

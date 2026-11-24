@@ -61,7 +61,7 @@ What only a phone does is tried on the phones themselves: Face ID, the password 
 
 ```bash
 cd flutter
-flutter test           # 12 tests
+flutter test           # 15 tests
 flutter analyze
 
 cd example
@@ -70,7 +70,7 @@ flutter analyze
 ```
 
 - `passkey_client_test.dart` runs `PasskeyClient` with a fake device and a fake server: the order of the calls, a cancelled sheet stopping before the server is asked again, and naming a new passkey.
-- `http_passkey_server_api_test.dart` runs `HttpPasskeyServerApi` against `MockClient` from `package:http/testing`: the paths, bodies and headers, and turning errors and lost connections into `PasskeyException`.
+- `dio_passkey_server_api_test.dart` runs `DioPasskeyServerApi` on a Dio with a fake `HttpClientAdapter`: the paths, bodies and headers, a Dio of your own with its `baseUrl` and interceptors, and turning errors, timeouts, lost connections and cancelled requests into `PasskeyException`.
 - The example's `widget_test.dart` signs in with a passkey, adds one, and checks that the passkey button is hidden where passkeys don't work.
 
 ## End to end on the iOS Simulator

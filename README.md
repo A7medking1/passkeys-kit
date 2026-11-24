@@ -201,7 +201,7 @@ dependencies:
 import 'package:passkeys_kit/passkeys_kit.dart';
 
 final passkeys = PasskeyClient(
-  server: HttpPasskeyServerApi(
+  server: DioPasskeyServerApi(
     baseUrl: Uri.parse('https://api.example.com/auth/passkeys'),
     headers: () async => {'Authorization': 'Bearer ${await tokens.read()}'},
   ),
@@ -232,7 +232,7 @@ Your app also needs the iOS entitlement and the Android signing keys in place. T
 | [How it works](docs/how-it-works.md) | Passkeys in five minutes, both flows step by step, and what's stored where |
 | [Domain setup](docs/domain-setup.md) | The RP ID, `apple-app-site-association`, `assetlinks.json`, the iOS entitlement, Android signing keys, and how to check them |
 | [Server guide](docs/server.md) | Every option, route, hook and message of the Express router |
-| [Flutter guide](docs/flutter.md) | `PasskeyClient`, errors, platform setup, and using your own HTTP client |
+| [Flutter guide](docs/flutter.md) | `PasskeyClient`, errors, platform setup, and using your app's Dio |
 | [Testing](docs/testing.md) | The test suites, the virtual authenticator, and driving Face ID on the Simulator |
 | [Troubleshooting](docs/troubleshooting.md) | The errors you'll meet, and what fixes them |
 | [Security](docs/security.md) | What the kit checks, why, and what stays your job |
@@ -257,8 +257,8 @@ passkeys-kit/
 │   ├── example/         a whole API: accounts, sessions, and passkeys
 │   └── tests/           29 tests, signed by a virtual authenticator
 ├── flutter/             the passkeys_kit package
-│   ├── lib/             PasskeyClient, HttpPasskeyServerApi, PasskeyException
-│   ├── test/            12 tests
+│   ├── lib/             PasskeyClient, DioPasskeyServerApi, PasskeyException
+│   ├── test/            15 tests
 │   └── example/         the app in the screenshots
 └── docs/                the guides above
 ```

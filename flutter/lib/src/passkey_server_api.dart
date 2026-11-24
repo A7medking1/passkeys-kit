@@ -1,14 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 import 'passkey_exception.dart';
 import 'passkey_info.dart';
 
 /// The server side of passkeys: the routes of the kit's Express router.
-/// Implement it yourself to use Dio or your own client, or use
-/// [HttpPasskeyServerApi].
+/// [DioPasskeyServerApi] implements it over Dio. Implement it yourself to
+/// use another client.
 abstract interface class PasskeyServerApi {
   /// `POST register/options`: what the phone needs to make a passkey.
   Future<Map<String, dynamic>> registerOptions();
@@ -32,28 +31,45 @@ abstract interface class PasskeyServerApi {
   Future<void> delete(String id);
 }
 
-/// [PasskeyServerApi] over `package:http`.
-class HttpPasskeyServerApi implements PasskeyServerApi {
+/// [PasskeyServerApi] over Dio.
+///
+/// Give it your app's [Dio] to reuse it: its interceptors (your token, a
+/// refresh on 401, a logger), timeouts and adapter apply to the passkey
+/// routes too. Without one, it makes its own.
+class DioPasskeyServerApi implements PasskeyServerApi {
   /// [baseUrl] is where the router is mounted, like
-  /// `https://api.example.com/auth/passkeys`. [headers] runs before every
-  /// request: return your auth header there.
-  HttpPasskeyServerApi({
+  /// `https://api.example.com/auth/passkeys`. With your own [dio], it can be
+  /// a path under the Dio's `baseUrl` instead, like `auth/passkeys`.
+  ///
+  /// [headers] runs before every request: return your auth header there, or
+  /// leave it out when an interceptor of your [dio] adds it.
+  ///
+  /// The Dio it makes waits 20 seconds to connect and 30 seconds for an
+  /// answer. For other timeouts, pass your own [dio].
+  DioPasskeyServerApi({
     required Uri baseUrl,
     FutureOr<Map<String, String>> Function()? headers,
-    http.Client? client,
-    this.timeout = const Duration(seconds: 20),
-  }) : _baseUrl = baseUrl.path.endsWith('/')
+    Dio? dio,
+  }) : assert(
+         baseUrl.hasScheme || dio != null,
+         'A relative baseUrl goes under the baseUrl of your Dio: pass `dio`.',
+       ),
+       _baseUrl = baseUrl.path.endsWith('/')
            ? baseUrl
            : baseUrl.replace(path: '${baseUrl.path}/'),
        _headers = headers,
-       _client = client ?? http.Client();
+       _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 20),
+               receiveTimeout: const Duration(seconds: 30),
+             ),
+           );
 
   final Uri _baseUrl;
   final FutureOr<Map<String, String>> Function()? _headers;
-  final http.Client _client;
-
-  /// How long one request may take.
-  final Duration timeout;
+  final Dio _dio;
 
   @override
   Future<Map<String, dynamic>> registerOptions() async =>
@@ -100,41 +116,54 @@ class HttpPasskeyServerApi implements PasskeyServerApi {
   }
 
   Future<Object?> _send(String method, String path, {Object? body}) async {
-    final request = http.Request(method, _baseUrl.resolve(path));
-    request.headers.addAll({
-      'Accept': 'application/json',
-      if (body != null) 'Content-Type': 'application/json',
-      ...?await _headers?.call(),
-    });
-    if (body != null) request.body = jsonEncode(body);
-
-    final http.Response response;
+    final headers = {'Accept': 'application/json', ...?await _headers?.call()};
     try {
-      response = await http.Response.fromStream(
-        await _client.send(request).timeout(timeout),
+      final response = await _dio.request<Object?>(
+        _baseUrl.resolve(path).toString(),
+        data: body,
+        options: Options(
+          method: method,
+          headers: headers,
+          contentType: body == null ? null : Headers.jsonContentType,
+          responseType: ResponseType.json,
+          // Set here, so a Dio that accepts 4xx answers still throws on them,
+          // with the server's message.
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+          receiveDataWhenStatusError: true,
+        ),
       );
-    } on TimeoutException catch (error) {
-      throw PasskeyException(PasskeyFailure.network, cause: error);
-    } on http.ClientException catch (error) {
-      throw PasskeyException(PasskeyFailure.network, cause: error);
+      return response.data;
+    } on DioException catch (error) {
+      throw _toPasskeyException(error);
     }
-
-    final decoded = response.body.isEmpty ? null : _decode(response.body);
-    if (response.statusCode >= 400) {
-      throw PasskeyException(
-        PasskeyFailure.server,
-        message: decoded is Map ? decoded['message'] as String? : null,
-        statusCode: response.statusCode,
-      );
-    }
-    return decoded;
   }
 
-  static Object? _decode(String body) {
-    try {
-      return jsonDecode(body);
-    } on FormatException {
-      return null;
+  /// Dio's error, as the [PasskeyFailure] the app expects.
+  static PasskeyException _toPasskeyException(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.badResponse:
+        final data = error.response?.data;
+        final message = data is Map ? data['message'] : null;
+        return PasskeyException(
+          PasskeyFailure.server,
+          message: message is String ? message : null,
+          statusCode: error.response?.statusCode,
+          cause: error,
+        );
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.transformTimeout:
+      case DioExceptionType.connectionError:
+      case DioExceptionType.badCertificate:
+        return PasskeyException(PasskeyFailure.network, cause: error);
+      case DioExceptionType.cancel:
+        // Your Dio cancelled it: there's nothing to show.
+        return PasskeyException(PasskeyFailure.cancelled, cause: error);
+      default:
+        // DioExceptionType.unknown, and any type a newer Dio adds.
+        return PasskeyException(PasskeyFailure.unknown, cause: error);
     }
   }
 }

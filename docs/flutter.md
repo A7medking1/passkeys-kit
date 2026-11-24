@@ -9,7 +9,7 @@
 - [Add a passkey](#add-a-passkey)
 - [List and delete](#list-and-delete)
 - [Errors](#errors)
-- [Use your own HTTP client](#use-your-own-http-client)
+- [Use your app's Dio](#use-your-apps-dio)
 - [Test your screens](#test-your-screens)
 - [API reference](#api-reference)
 - [UX tips](#ux-tips)
@@ -27,7 +27,7 @@ dependencies:
       ref: main # or a release tag
 ```
 
-It needs Flutter 3.41 or newer (Dart 3.11). It brings in [`passkeys`](https://pub.dev/packages/passkeys) for the system sheet, [`http`](https://pub.dev/packages/http) for the server, and [`device_info_plus`](https://pub.dev/packages/device_info_plus) to name new passkeys after the phone.
+It needs Flutter 3.41 or newer (Dart 3.11). It brings in [`passkeys`](https://pub.dev/packages/passkeys) for the system sheet, [`dio`](https://pub.dev/packages/dio) for the server, and [`device_info_plus`](https://pub.dev/packages/device_info_plus) to name new passkeys after the phone.
 
 ## Platform setup
 
@@ -52,7 +52,7 @@ Make one `PasskeyClient` for the app, next to your other services:
 import 'package:passkeys_kit/passkeys_kit.dart';
 
 final passkeys = PasskeyClient(
-  server: HttpPasskeyServerApi(
+  server: DioPasskeyServerApi(
     // Where the server's router is mounted.
     baseUrl: Uri.parse('https://api.example.com/auth/passkeys'),
     // Runs before every request. The public routes ignore it.
@@ -64,7 +64,7 @@ final passkeys = PasskeyClient(
 );
 ```
 
-`HttpPasskeyServerApi` also takes your own `http.Client` (`client:`) and a `timeout` (20 seconds by default). To use Dio or another client instead, see [your own HTTP client](#use-your-own-http-client).
+`DioPasskeyServerApi` makes its own Dio, which waits 20 seconds to connect and 30 seconds for an answer. If your app has a Dio already, pass it as `dio:` instead: see [your app's Dio](#use-your-apps-dio).
 
 ## Sign in
 
@@ -100,7 +100,7 @@ FutureBuilder<bool>(
 
 ## Add a passkey
 
-The user must be signed in: `headers` sends their token.
+The user must be signed in: `headers`, or your Dio's interceptor, sends their token.
 
 ```dart
 try {
@@ -135,14 +135,14 @@ Every call throws a `PasskeyException` when it fails. It tells you why in `reaso
 
 | `reason` | When | What to do |
 | --- | --- | --- |
-| `cancelled` | The user closed the sheet | Nothing. `isCancelled` is true, and `message` is empty. |
+| `cancelled` | The user closed the sheet, or your Dio cancelled the request | Nothing. `isCancelled` is true, and `message` is empty. |
 | `noPasskey` | Signing in, and the phone has no passkey for your RP ID | Offer the password sign-in |
 | `alreadyRegistered` | Adding, and this phone already has a passkey for the account | Tell the user it's already set up |
 | `needsGoogleAccount` | Android, with no Google account on the phone | Ask the user to add one |
 | `notSupported` | An OS that's too old, or no screen lock | Hide the passkey options |
 | `domainNotAssociated` | The app isn't tied to the RP ID's domain | Fix the [domain setup](domain-setup.md). Debug builds print a hint. |
 | `server` | The server said no | Show `message`, the server's own. `statusCode` has the status. |
-| `network` | The server couldn't be reached, or took longer than `timeout` | Offer to retry |
+| `network` | The server couldn't be reached, or took too long to answer (Dio's timeouts) | Offer to retry |
 | `unknown` | Anything else | Show `message`, and log `cause` |
 
 `message` is the server's message when there is one, otherwise an English default for the `reason`. `cause` keeps the original error for your logs.
@@ -158,82 +158,40 @@ String describe(PasskeyException error, AppLocalizations l10n) => switch (error.
 };
 ```
 
-## Use your own HTTP client
+## Use your app's Dio
 
-`PasskeyClient` talks to the server through the `PasskeyServerApi` interface. `HttpPasskeyServerApi` is one implementation, and you can write your own, to reuse your Dio instance with its interceptors, for example:
+If your app already has a Dio, with its `baseUrl`, its timeouts and an interceptor that adds the token, pass it as `dio:`. The passkey routes then go through the same interceptors as your other calls: the token, a refresh on 401, your logger. `baseUrl` can then be the router's path under the Dio's `baseUrl`:
 
 ```dart
 import 'package:dio/dio.dart';
 import 'package:passkeys_kit/passkeys_kit.dart';
 
-/// The kit's routes over Dio. Give it a Dio whose baseUrl is where the router
-/// is mounted, with a trailing slash: https://api.example.com/auth/passkeys/
-class DioPasskeyServerApi implements PasskeyServerApi {
-  DioPasskeyServerApi(this._dio);
-
-  final Dio _dio;
-
-  @override
-  Future<Map<String, dynamic>> registerOptions() =>
-      _send<Map<String, dynamic>>(() => _dio.post('register/options', data: {}));
-
-  @override
-  Future<PasskeyInfo> registerVerify(
-    Map<String, dynamic> response, {
-    String? name,
-  }) async => PasskeyInfo.fromJson(
-    await _send<Map<String, dynamic>>(
-      () => _dio.post('register/verify', data: {'response': response, 'name': ?name}),
+final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com/api/v1/'))
+  ..interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await tokens.read();
+        if (token != null) options.headers['Authorization'] = 'Bearer $token';
+        handler.next(options);
+      },
     ),
   );
 
-  @override
-  Future<Map<String, dynamic>> loginOptions() =>
-      _send<Map<String, dynamic>>(() => _dio.post('login/options', data: {}));
-
-  @override
-  Future<Map<String, dynamic>> loginVerify(Map<String, dynamic> response) =>
-      _send<Map<String, dynamic>>(
-        () => _dio.post('login/verify', data: {'response': response}),
-      );
-
-  @override
-  Future<List<PasskeyInfo>> list() async {
-    final items = await _send<List<dynamic>>(() => _dio.get(''));
-    return [
-      for (final item in items) PasskeyInfo.fromJson(item as Map<String, dynamic>),
-    ];
-  }
-
-  @override
-  Future<void> delete(String id) async {
-    await _send<Object?>(() => _dio.delete(Uri.encodeComponent(id)));
-  }
-
-  /// Turns Dio's errors into the PasskeyException the app expects.
-  Future<T> _send<T>(Future<Response<dynamic>> Function() request) async {
-    try {
-      return (await request()).data as T;
-    } on DioException catch (error) {
-      final response = error.response;
-      if (response == null) {
-        throw PasskeyException(PasskeyFailure.network, cause: error);
-      }
-      final data = response.data;
-      throw PasskeyException(
-        PasskeyFailure.server,
-        message: data is Map ? data['message'] as String? : null,
-        statusCode: response.statusCode,
-        cause: error,
-      );
-    }
-  }
-}
+final passkeys = PasskeyClient(
+  server: DioPasskeyServerApi(
+    baseUrl: Uri.parse('auth/passkeys'), // https://api.example.com/api/v1/auth/passkeys/
+    dio: dio,
+  ),
+);
 ```
 
-```dart
-final passkeys = PasskeyClient(server: DioPasskeyServerApi(dio));
-```
+There's no `headers` here, because the interceptor sends the token. Your interceptors see paths like `auth/passkeys/login/options`. If yours refreshes the token on a 401, skip `login/options` and `login/verify`: they're public, so their 401 means a failed sign-in, not an expired session.
+
+The kit doesn't change your Dio. It sets only what the passkey routes need, on each request: JSON both ways, and any status other than 2xx is an error, even when your Dio accepts 4xx answers. Dio's errors become a `PasskeyException`: a timeout or no connection is `network`, an error status is `server` with the server's message, and a cancelled request is `cancelled`.
+
+The example app does the same: one Dio for its account calls and its passkeys, in [`dio_client.dart`](../flutter/example/lib/src/dio_client.dart).
+
+To use another HTTP client, implement `PasskeyServerApi`, one method per route. The `FakeServer` in the example's [`widget_test.dart`](../flutter/example/test/widget_test.dart) is a whole implementation.
 
 ## Test your screens
 
@@ -276,8 +234,8 @@ The example's [`widget_test.dart`](../flutter/example/test/widget_test.dart) has
 | `Future<PasskeyInfo> register({String? name})` | Makes a passkey on this phone for the signed-in user |
 | `Future<List<PasskeyInfo>> list()` | The signed-in user's passkeys, the newest first |
 | `Future<void> delete(String id)` | Deletes one on the server |
-| `HttpPasskeyServerApi({required baseUrl, headers, client, timeout})` | `PasskeyServerApi` over `package:http` |
-| `PasskeyServerApi` | The interface for your own HTTP client |
+| `DioPasskeyServerApi({required baseUrl, headers, dio})` | `PasskeyServerApi` over Dio: your app's Dio, or one of its own |
+| `PasskeyServerApi` | The interface, to use another HTTP client |
 | `PasskeyDevice`, `SystemPasskeyDevice({authenticator})` | The phone's side, and its real implementation |
 | `PasskeyInfo` | One passkey as the server lists it |
 | `PasskeyException`, `PasskeyFailure`, `defaultPasskeyMessages` | Errors, their reasons, and the English defaults |

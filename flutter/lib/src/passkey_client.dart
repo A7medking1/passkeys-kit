@@ -10,7 +10,7 @@ import 'passkey_server_api.dart';
 ///
 /// ```dart
 /// final passkeys = PasskeyClient(
-///   server: HttpPasskeyServerApi(
+///   server: DioPasskeyServerApi(
 ///     baseUrl: Uri.parse('https://api.example.com/auth/passkeys'),
 ///     headers: () => {'Authorization': 'Bearer $token'},
 ///   ),

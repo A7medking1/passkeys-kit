@@ -1,7 +1,8 @@
 /// Why a passkey call failed. Map these to your own words, or show
 /// [PasskeyException.message] as it is.
 enum PasskeyFailure {
-  /// The user closed the passkey sheet. Show nothing.
+  /// The user closed the passkey sheet, or your Dio cancelled the request.
+  /// Show nothing.
   cancelled,
 
   /// Signing in: this phone has no passkey for your app's domain.
@@ -25,7 +26,7 @@ enum PasskeyFailure {
   /// The server said no. [PasskeyException.message] is its message.
   server,
 
-  /// The server couldn't be reached.
+  /// The server couldn't be reached, or took too long to answer.
   network,
 
   /// Anything else. [PasskeyException.cause] has the details.

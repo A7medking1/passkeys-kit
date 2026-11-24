@@ -9,9 +9,9 @@ environment:
   flutter: ">=3.41.0"
 
 dependencies:
+  dio: ^5.11.1
   flutter:
     sdk: flutter
-  http: ^1.6.0
   passkeys_kit:
     path: ../
 

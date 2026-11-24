@@ -4,6 +4,14 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ## [Unreleased]
 
+### Changed
+
+- **Flutter (`passkeys_kit`)**: the server calls use [Dio](https://pub.dev/packages/dio) instead of `package:http`. **Breaking:** `DioPasskeyServerApi` replaces `HttpPasskeyServerApi`.
+  - Pass your app's `Dio` as `dio:`, and the passkey routes go through its interceptors, timeouts and logger. With it, `baseUrl` can be a path under the Dio's `baseUrl`, like `auth/passkeys`.
+  - `client:` and `timeout:` are gone. The Dio the kit makes when you don't pass one waits 20 seconds to connect and 30 seconds for an answer.
+  - Any status other than 2xx is a `server` failure, even when your Dio accepts 4xx answers. A request your Dio cancelled is `cancelled`, and a certificate it refused is `network`.
+- **Example**: one Dio for the account calls and the passkeys, with an interceptor that adds the token.
+
 ## [0.1.0] - 2026-11-21
 
 The first release.
